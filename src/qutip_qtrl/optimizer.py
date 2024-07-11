@@ -144,6 +144,9 @@ class Optimizer(object):
 
         - 'GRAPE' (default) - GRadient Ascent Pulse Engineering
         - 'CRAB' - Chopped RAndom Basis
+        grafs_flag
+        - 'GRAFS' - GRadient Ascent in Functional Space
+
 
     alg_params : Dictionary
         Options that are specific to the pulse optim algorithm ``alg``.
@@ -1307,6 +1310,10 @@ class OptimizerCrabFmin(OptimizerCrab):
 
         return result
 
+# grafs_flag
+class OptimizerGrafs(Optimizer):
+    pass
+
 
 class OptimIterSummary(qtrldump.DumpSummaryItem):
     """
@@ -1363,3 +1370,5 @@ class OptimIterSummary(qtrldump.DumpSummaryItem):
         self.fid_err = None
         self.grad_norm = None
         self.wall_time = 0.0
+
+

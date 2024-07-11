@@ -58,7 +58,7 @@ class OptimConfig(object):
 
     def reset(self):
         self.log_level = logger.getEffectiveLevel()
-        self.alg = "GRAPE"  # Alts: 'CRAB'
+        self.alg = "GRAPE"  # Alts: 'CRAB', 'GRAFS'
         self.optim_method = "DEF"
         self.dyn_type = "DEF"
         self.fid_type = "DEF"

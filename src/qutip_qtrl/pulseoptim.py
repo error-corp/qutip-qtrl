@@ -33,12 +33,16 @@ CRAB
 The CRAB [3][4] algorithm was developed at the University of Ulm.
 In full it is the Chopped RAndom Basis algorithm.
 The main difference is that it reduces the number of optimisation variables
-by defining the control pulses by expansions of basis functions,
+by
+    Optimal Control Technique for Many-Body Quantum Dynamics. defining the control pulses by expansions of basis functions,
 where the variables are the coefficients. Typically a Fourier series is chosen,
 i.e. the variables are the Fourier coefficients.
 Therefore it does not need to compute an explicit gradient.
 By default it uses the Nelder-Mead method for fidelity error minimisation.
 
+
+GRAFS
+___
 References
 ----------
 1.  N Khaneja et. al.
@@ -48,7 +52,6 @@ References
     DYNAMO - Dynamic Framework for Quantum Optimal Control
     arXiv.1011.4874
 3.  Doria, P., Calarco, T. & Montangero, S.
-    Optimal Control Technique for Many-Body Quantum Dynamics.
     Phys. Rev. Lett. 106, 1–4 (2011).
 4.  Caneva, T., Calarco, T. & Montangero, S.
     Chopped random-basis quantum optimization.
@@ -1485,6 +1488,643 @@ def opt_pulse_crab_unitary(
         gen_stats=gen_stats,
     )
 
+def opt_pulse_grafs(
+    drift,
+    ctrls,
+    initial,
+    target,
+    num_tslots=None,
+    evo_time=None,
+    tau=None,
+    amp_lbound=None,
+    amp_ubound=None,
+    fid_err_targ=1e-5,
+    min_grad=1e-10,
+    max_iter=500,
+    max_wall_time=180,
+    alg_params=None,
+    num_coeffs=None,
+    init_coeff_scaling=1.0, # check what default should be / if this is needed 
+    optim_params=None,
+    optim_method="DEF",  # what default should be used here?
+    method_params=None,
+    optim_alg=None, # configure default value
+    dyn_type="GEN_MAT",
+    dyn_params=None,
+    prop_type="DEF",
+    prop_params=None,
+    fid_type="DEF",
+    fid_params=None,
+    tslot_type="DEF",
+    tslot_params=None,
+    init_pulse_type=None, # in CRAB, this is "guess_pulse_type" - not sure which would be best here
+    init_pulse_params=None,
+    # confirm the next three
+    guess_pulse_scaling=1.0,
+    guess_pulse_offset=0.0,
+    guess_pulse_action="MODULATE",
+    ramping_pulse_type=None,
+    ramping_pulse_params=None,
+    log_level=logging.NOTSET,
+    out_file_ext=None,
+    gen_stats=False,
+):
+    """
+    Optimise a control pulse to minimise the fidelity error.
+    The dynamics of the system in any given timeslot are governed
+    by the combined dynamics generator,
+    i.e. the sum of the drift+ctrl_amp[j]*ctrls[j]
+    The control pulse is an [n_ts, n_ctrls] array of piecewise amplitudes.
+    The CRAB algorithm uses basis function coefficents as the variables to
+    optimise. It does NOT use any gradient function.
+    A multivariable optimisation algorithm attempts to determines the
+    optimal values for the control pulse to minimise the fidelity error
+    The fidelity error is some measure of distance of the system evolution
+    from the given target evolution in the time allowed for the evolution.
+
+    Parameters
+    ----------
+    drift : Qobj or list of Qobj
+        the underlying dynamics generator of the system
+        can provide list (of length num_tslots) for time dependent drift
+
+    ctrls : List of Qobj or array like [num_tslots, evo_time]
+        a list of control dynamics generators. These are scaled by
+        the amplitudes to alter the overall dynamics
+        Array like imput can be provided for time dependent control generators
+
+    initial : Qobj
+        Starting point for the evolution.  Typically the identity matrix.
+
+    target : Qobj
+        Target transformation, e.g. gate or state, for the time evolution.
+
+    num_tslots : integer or None
+        Number of timeslots.  ``None`` implies that timeslots will be given in
+        the tau array.
+
+    evo_time : float or None
+        Total time for the evolution.  ``None`` implies that timeslots will be
+        given in the tau array.
+
+    tau : array[num_tslots] of floats or None
+        Durations for the timeslots.  If this is given then ``num_tslots`` and
+        ``evo_time`` are dervived from it.
+        ``None`` implies that timeslot durations will be equal and calculated
+        as ``evo_time/num_tslots``.
+
+    amp_lbound : float or list of floats
+        Lower boundaries for the control amplitudes.  Can be a scalar value
+        applied to all controls or a list of bounds for each control.
+
+    amp_ubound : float or list of floats
+        Upper boundaries for the control amplitudes.  Can be a scalar value
+        applied to all controls or a list of bounds for each control.
+
+    fid_err_targ : float
+        Fidelity error target. Pulse optimisation will terminate when the
+        fidelity error falls below this value.
+
+    max_iter : integer
+        Maximum number of iterations of the optimisation algorithm.
+
+    max_wall_time : float
+        Maximum allowed elapsed time for the  optimisation algorithm.
+
+    alg_params : Dictionary
+        Options that are specific to the algorithm see above.
+
+    optim_params : Dictionary
+        The key value pairs are the attribute name and value used to set
+        attribute values.  Note: attributes are created if they do not exist
+        already, and are overwritten if they do.  Note: method_params are
+        applied afterwards and so may override these.
+
+    coeff_scaling : float
+        Linear scale factor for the random basis coefficients.  By default
+        these range from -1.0 to 1.0.  Note this is overridden by alg_params
+        (if given there).
+
+    num_coeffs : integer
+        Number of coefficients used for each basis function.  Note this is
+        calculated automatically based on the dimension of the dynamics if not
+        given. It is crucial to the performane of the algorithm that it is set
+        as low as possible, while still giving high enough frequencies.  Note
+        this is overridden by alg_params (if given there).
+
+    optim_method : string
+        Multi-variable optimisation method.  The only tested options are 'fmin'
+        and 'Nelder-mead'.  In theory any non-gradient method implemented in
+        scipy.optimize.mininize could be used.
+
+    method_params : dict
+        Parameters for the optim_method.  Note that where there is an attribute
+        of the :class:`~qutip.control.optimizer.Optimizer` object or the
+        termination_conditions matching the key that attribute. Otherwise,
+        and in some case also, they are assumed to be method_options for the
+        ``scipy.optimize.minimize`` method.  The commonly used parameter are:
+
+        - xtol - limit on variable change for convergence
+        - ftol - limit on fidelity error change for convergence
+
+    dyn_type : string
+        Dynamics type, i.e. the type of matrix used to describe the dynamics.
+        Options are UNIT, GEN_MAT, SYMPL (see Dynamics classes for details).
+
+    dyn_params : dict
+        Parameters for the :class:`qutip.control.dynamics.Dynamics` object.
+        The key value pairs are assumed to be attribute name value pairs.
+        They applied after the object is created.
+
+    prop_type : string
+        Propagator type i.e. the method used to calculate the propagtors and
+        propagtor gradient for each timeslot options are DEF, APPROX, DIAG,
+        FRECHET, AUG_MAT DEF will use the default for the specific dyn_type
+        (see :obj:`~qutip.control.propcomp.PropagatorComputer` classes for
+        details).
+
+    prop_params : dict
+        Parameters for the :obj:`~qutip.control.propcomp.PropagatorComputer`
+        object. The key value pairs are assumed to be attribute name value
+        pairs. They applied after the object is created.
+
+    fid_type : string
+        Fidelity error (and fidelity error gradient) computation method.
+        Options are DEF, UNIT, TRACEDIFF, TD_APPROX.  DEF will use the default
+        for the specific dyn_type.
+        (See :obj:`~qutip.control.fidcomp.FidelityComputer` classes for
+        details).
+
+    fid_params : dict
+        Parameters for the :obj:`~qutip.control.fidcomp.FidelityComputer`
+        object. The key value pairs are assumed to be attribute name value
+        pairs. They applied after the object is created.
+
+    tslot_type : string
+        Method for computing the dynamics generators, propagators and evolution
+        in the timeslots.  Options: DEF, UPDATE_ALL, DYNAMIC UPDATE_ALL is the
+        only one that currently works.
+        (See :obj:`~qutip.control.tslotcomp.TimeslotComputer` classes
+        for details).
+
+    tslot_params : dict
+        Parameters for the :obj:`~qutip.control.tslotcomp.TimeslotComputer`
+        object. The key value pairs are assumed to be attribute name value
+        pairs. They applied after the object is created.
+
+    guess_pulse_type : string, default None
+        Type / shape of pulse(s) used modulate the control amplitudes.
+        Options include: RND, LIN, ZERO, SINE, SQUARE, TRIANGLE, SAW, GAUSSIAN.
+
+    guess_pulse_params : dict
+        Parameters for the guess pulse generator object.  The key value pairs
+        are assumed to be attribute name value pairs.  They applied after the
+        object is created.
+
+    guess_pulse_action : string, default 'MODULATE'
+        Determines how the guess pulse is applied to the pulse generated by the
+        basis expansion.  Options are: MODULATE, ADD.
+
+    pulse_scaling : float
+        Linear scale factor for generated guess pulses.  By default initial
+        pulses are generated with amplitudes in the range (-1.0, 1.0). These
+        will be scaled by this parameter.
+
+    pulse_offset : float
+        Linear offset for the pulse. That is this value will be added to any
+        guess pulses generated.
+
+    ramping_pulse_type : string
+        Type of pulse used to modulate the control pulse.  It's intended use
+        for a ramping modulation, which is often required in experimental
+        setups.  This is only currently implemented in CRAB.  GAUSSIAN_EDGE was
+        added for this purpose.
+
+    ramping_pulse_params : dict
+        Parameters for the ramping pulse generator object.  The key value pairs
+        are assumed to be attribute name value pairs.  They applied after the
+        object is created.
+
+    log_level : integer
+        level of messaging output from the logger.  Options are attributes of
+        :obj:`qutip_qtrl.logging_utils`, in decreasing levels of messaging, are:
+        DEBUG_INTENSE, DEBUG_VERBOSE, DEBUG, INFO, WARN, ERROR, CRITICAL
+        Anything WARN or above is effectively 'quiet' execution, assuming
+        everything runs as expected.  The default NOTSET implies that the level
+        will be taken from the QuTiP settings file, which by default is WARN.
+
+    out_file_ext : string or None
+        Files containing the initial and final control pulse.  Amplitudes are
+        saved to the current directory.  The default name will be postfixed
+        with this extension.  Setting this to ``None`` will suppress the output
+        of files.
+
+    gen_stats : boolean
+        If set to ``True`` then statistics for the optimisation run will be
+        generated - accessible through attributes of the stats object.
+
+    Returns
+    -------
+    opt : OptimResult
+        Returns instance of OptimResult, which has attributes giving the
+        reason for termination, final fidelity error, final evolution
+        final amplitudes, statistics etc
+    """
+
+    # The parameters are checked in create_pulse_optimizer
+    # so no need to do so here
+
+    if log_level == logging.NOTSET:
+        log_level = logger.getEffectiveLevel()
+    else:
+        logger.setLevel(log_level)
+
+    # build the algorithm options
+    if not isinstance(alg_params, dict):
+        alg_params = {
+            "num_coeffs": num_coeffs,
+            "init_coeff_scaling": init_coeff_scaling,
+        }
+    else:
+        if num_coeffs is not None and "num_coeffs" not in alg_params:
+            alg_params["num_coeffs"] = num_coeffs
+        if (
+            init_coeff_scaling is not None
+            and "init_coeff_scaling" not in alg_params
+        ):
+            alg_params["init_coeff_scaling"] = init_coeff_scaling
+
+    # Build the guess pulse options
+    # Any options passed in the guess_pulse_params take precedence
+    # over the parameter values.
+    if guess_pulse_type:
+        if not isinstance(guess_pulse_params, dict):
+            guess_pulse_params = {}
+        if (
+            guess_pulse_scaling is not None
+            and "scaling" not in guess_pulse_params
+        ):
+            guess_pulse_params["scaling"] = guess_pulse_scaling
+        if (
+            guess_pulse_offset is not None
+            and "offset" not in guess_pulse_params
+        ):
+            guess_pulse_params["offset"] = guess_pulse_offset
+        if (
+            guess_pulse_action is not None
+            and "pulse_action" not in guess_pulse_params
+        ):
+            guess_pulse_params["pulse_action"] = guess_pulse_action
+
+    return optimize_pulse(
+        drift,
+        ctrls,
+        initial,
+        target,
+        num_tslots=num_tslots,
+        evo_time=evo_time,
+        tau=tau,
+        amp_lbound=amp_lbound,
+        amp_ubound=amp_ubound,
+        fid_err_targ=fid_err_targ,
+        min_grad=0.0,
+        max_iter=max_iter,
+        max_wall_time=max_wall_time,
+        alg="CRAB",
+        alg_params=alg_params,
+        optim_params=optim_params,
+        optim_method=optim_method,
+        method_params=method_params,
+        dyn_type=dyn_type,
+        dyn_params=dyn_params,
+        prop_type=prop_type,
+        prop_params=prop_params,
+        fid_type=fid_type,
+        fid_params=fid_params,
+        tslot_type=tslot_type,
+        tslot_params=tslot_params,
+        init_pulse_type=guess_pulse_type,
+        init_pulse_params=guess_pulse_params,
+        ramping_pulse_type=ramping_pulse_type,
+        ramping_pulse_params=ramping_pulse_params,
+        log_level=log_level,
+        out_file_ext=out_file_ext,
+        gen_stats=gen_stats,
+    )
+
+
+def opt_pulse_grafs_unitary(
+    H_d,
+    H_c,
+    U_0,
+    U_targ,
+    num_tslots=None,
+    evo_time=None,
+    tau=None,
+    amp_lbound=None,
+    amp_ubound=None,
+    fid_err_targ=1e-5,
+    min_grad=1e-10,
+    max_iter=500,
+    max_wall_time=180,
+    alg_params=None,
+    num_coeffs=None,
+    init_coeff_scaling=1.0, # check what default should be / if this is needed 
+    optim_params=None,
+    optim_method="DEF",  # what default should be used here?
+    method_params=None,
+    optim_alg=None, # configure default value
+    dyn_params=None,
+    prop_params=None,
+    fid_params=None,
+    tslot_type="DEF",
+    tslot_params=None,
+    init_pulse_type=None, # in CRAB, this is "guess_pulse_type" - not sure which would be best here
+    init_pulse_params=None,
+    # confirm the next three
+    guess_pulse_scaling=1.0,
+    guess_pulse_offset=0.0,
+    guess_pulse_action="MODULATE",
+    ramping_pulse_type=None,
+    ramping_pulse_params=None,
+    log_level=logging.NOTSET,
+    out_file_ext=None,
+    gen_stats=False,
+):
+    """
+    Optimise a control pulse to minimise the fidelity error, assuming that the
+    dynamics of the system are generated by unitary operators.  This function
+    is simply a wrapper for optimize_pulse, where the appropriate options for
+    unitary dynamics are chosen and the parameter names are in the format
+    familiar to unitary dynamics.  The dynamics of the system  in any given
+    timeslot are governed by the combined Hamiltonian, i.e. the sum of the
+    ``H_d + ctrl_amp[j]*H_c[j]`` The control pulse is an ``[n_ts, n_ctrls]``
+    array of piecewise amplitudes.
+
+    The CRAB algorithm uses basis function coefficents as the variables to
+    optimise. It does NOT use any gradient function.  A multivariable
+    optimisation algorithm attempts to determines the optimal values for the
+    control pulse to minimise the fidelity error.  The fidelity error is some
+    measure of distance of the system evolution from the given target evolution
+    in the time allowed for the evolution.
+
+    Parameters
+    ----------
+
+    H_d : Qobj or list of Qobj
+        Drift (aka system) the underlying Hamiltonian of the system can provide
+        list (of length num_tslots) for time dependent drift.
+
+    H_c : List of Qobj or array like [num_tslots, evo_time]
+        A list of control Hamiltonians. These are scaled by the amplitudes to
+        alter the overall dynamics.  Array like imput can be provided for time
+        dependent control generators.
+
+    U_0 : Qobj
+        Starting point for the evolution.  Typically the identity matrix.
+
+    U_targ : Qobj
+        Target transformation, e.g. gate or state, for the time evolution.
+
+    num_tslots : integer or None
+        Number of timeslots.  ``None`` implies that timeslots will be given in
+        the tau array.
+
+    evo_time : float or None
+        Total time for the evolution.  ``None`` implies that timeslots will be
+        given in the tau array.
+
+    tau : array[num_tslots] of floats or None
+        Durations for the timeslots.  If this is given then ``num_tslots`` and
+        ``evo_time`` are derived from it.  ``None`` implies that timeslot
+        durations will be equal and calculated as ``evo_time/num_tslots``.
+
+    amp_lbound : float or list of floats
+        Lower boundaries for the control amplitudes.  Can be a scalar value
+        applied to all controls or a list of bounds for each control.
+
+    amp_ubound : float or list of floats
+        Upper boundaries for the control amplitudes.  Can be a scalar value
+        applied to all controls or a list of bounds for each control.
+
+    fid_err_targ : float
+        Fidelity error target. Pulse optimisation will terminate when the
+        fidelity error falls below this value.
+
+    max_iter : integer
+        Maximum number of iterations of the optimisation algorithm.
+
+    max_wall_time : float
+        Maximum allowed elapsed time for the optimisation algorithm.
+
+    alg_params : Dictionary
+        Options that are specific to the algorithm see above.
+
+    optim_params : Dictionary
+        The key value pairs are the attribute name and value used to set
+        attribute values.  Note: attributes are created if they do not exist
+        already, and are overwritten if they do.  Note: ``method_params`` are
+        applied afterwards and so may override these.
+
+    coeff_scaling : float
+        Linear scale factor for the random basis coefficients.  By default
+        these range from -1.0 to 1.0.  Note this is overridden by
+        ``alg_params`` (if given there).
+
+    num_coeffs : integer
+        Number of coefficients used for each basis function.  Note this is
+        calculated automatically based on the dimension of the dynamics if not
+        given. It is crucial to the performance of the algorithm that it is set
+        as low as possible, while still giving high enough frequencies.  Note
+        this is overridden by ``alg_params`` (if given there).
+
+    optim_method : string
+        Multi-variable optimisation method.  The only tested options are 'fmin'
+        and 'Nelder-mead'.  In theory any non-gradient method implemented in
+        ``scipy.optimize.minimize`` could be used.
+
+    method_params : dict
+        Parameters for the ``optim_method``.  Note that where there is an
+        attribute of the :obj:`~qutip.control.optimizer.Optimizer` object or
+        the termination_conditions matching the key that attribute. Otherwise,
+        and in some case also, they are assumed to be method_options for the
+        ``scipy.optimize.minimize`` method.  The commonly used parameter are:
+
+        - xtol - limit on variable change for convergence
+        - ftol - limit on fidelity error change for convergence
+
+    phase_option : string
+        Determines how global phase is treated in fidelity calculations
+        (``fid_type='UNIT'`` only). Options:
+
+        - PSU - global phase ignored
+        - SU - global phase included
+
+    dyn_params : dict
+        Parameters for the :obj:`~qutip.control.dynamics.Dynamics` object.
+        The key value pairs are assumed to be attribute name value pairs.
+        They applied after the object is created.
+
+    prop_params : dict
+        Parameters for the :obj:`~qutip.control.propcomp.PropagatorComputer`
+        object. The key value pairs are assumed to be attribute name value
+        pairs.  They applied after the object is created.
+
+    fid_params : dict
+        Parameters for the :obj:`~qutip.control.fidcomp.FidelityComputer`
+        object. The key value pairs are assumed to be attribute name value
+        pairs. They applied after the object is created.
+
+    tslot_type : string
+        Method for computing the dynamics generators, propagators and evolution
+        in the timeslots.  Options: DEF, UPDATE_ALL, DYNAMIC.  UPDATE_ALL is
+        the only one that currently works.
+        (See :obj:`~qutip.control.tslotcomp.TimeslotComputer` classes for
+        details).
+
+    tslot_params : dict
+        Parameters for the :obj:`~qutip.control.tslotcomp.TimeslotComputer`
+        object. The key value pairs are assumed to be attribute name value
+        pairs. They applied after the object is created.
+
+    guess_pulse_type : string, optional
+        Type / shape of pulse(s) used modulate the control amplitudes.
+        Options include: RND, LIN, ZERO, SINE, SQUARE, TRIANGLE, SAW, GAUSSIAN.
+
+    guess_pulse_params : dict
+        Parameters for the guess pulse generator object.  The key value pairs
+        are assumed to be attribute name value pairs.  They applied after the
+        object is created.
+
+    guess_pulse_action : string, 'MODULATE'
+        Determines how the guess pulse is applied to the pulse generated by the
+        basis expansion.  Options are: MODULATE, ADD.
+
+    pulse_scaling : float
+        Linear scale factor for generated guess pulses.  By default initial
+        pulses are generated with amplitudes in the range (-1.0, 1.0). These
+        will be scaled by this parameter.
+
+    pulse_offset : float
+        Linear offset for the pulse. That is this value will be added to any
+        guess pulses generated.
+
+    ramping_pulse_type : string
+        Type of pulse used to modulate the control pulse.  It's intended use
+        for a ramping modulation, which is often required in experimental
+        setups.  This is only currently implemented in CRAB.  GAUSSIAN_EDGE was
+        added for this purpose.
+
+    ramping_pulse_params : dict
+        Parameters for the ramping pulse generator object.  The key value pairs
+        are assumed to be attribute name value pairs.  They applied after the
+        object is created.
+
+    log_level : integer
+        Level of messaging output from the logger.  Options are attributes of
+        :obj:`qutip_qtrl.logging_utils`, in decreasing levels of messaging, are:
+        DEBUG_INTENSE, DEBUG_VERBOSE, DEBUG, INFO, WARN, ERROR, CRITICAL.
+        Anything WARN or above is effectively 'quiet' execution, assuming
+        everything runs as expected.  The default NOTSET implies that the level
+        will be taken from the QuTiP settings file, which by default is WARN.
+
+    out_file_ext : string or None
+        Files containing the initial and final control pulse amplitudes are
+        saved to the current directory.  The default name will be postfixed
+        with this extension.  Setting this to None will suppress the output of
+        files.
+
+    gen_stats : boolean
+        If set to ``True`` then statistics for the optimisation run will be
+        generated - accessible through attributes of the stats object.
+
+    Returns
+    -------
+    opt : OptimResult
+        Returns instance of :obj:`~qutip.control.optimresult.OptimResult`,
+        which has attributes giving the reason for termination, final fidelity
+        error, final evolution final amplitudes, statistics etc.
+    """
+
+    # The parameters are checked in create_pulse_optimizer
+    # so no need to do so here
+
+    if log_level == logging.NOTSET:
+        log_level = logger.getEffectiveLevel()
+    else:
+        logger.setLevel(log_level)
+
+    # build the algorithm options
+    if not isinstance(alg_params, dict):
+        alg_params = {
+            "num_coeffs": num_coeffs,
+            "init_coeff_scaling": init_coeff_scaling,
+        }
+    else:
+        if num_coeffs is not None and "num_coeffs" not in alg_params:
+            alg_params["num_coeffs"] = num_coeffs
+        if (
+            init_coeff_scaling is not None
+            and "init_coeff_scaling" not in alg_params
+        ):
+            alg_params["init_coeff_scaling"] = init_coeff_scaling
+
+    # Build the guess pulse options
+    # Any options passed in the guess_pulse_params take precedence
+    # over the parameter values.
+    if guess_pulse_type:
+        if not isinstance(guess_pulse_params, dict):
+            guess_pulse_params = {}
+        if (
+            guess_pulse_scaling is not None
+            and "scaling" not in guess_pulse_params
+        ):
+            guess_pulse_params["scaling"] = guess_pulse_scaling
+        if (
+            guess_pulse_offset is not None
+            and "offset" not in guess_pulse_params
+        ):
+            guess_pulse_params["offset"] = guess_pulse_offset
+        if (
+            guess_pulse_action is not None
+            and "pulse_action" not in guess_pulse_params
+        ):
+            guess_pulse_params["pulse_action"] = guess_pulse_action
+
+    return optimize_pulse_unitary(
+        H_d,
+        H_c,
+        U_0,
+        U_targ,
+        num_tslots=num_tslots,
+        evo_time=evo_time,
+        tau=tau,
+        amp_lbound=amp_lbound,
+        amp_ubound=amp_ubound,
+        fid_err_targ=fid_err_targ,
+        min_grad=0.0,
+        max_iter=max_iter,
+        max_wall_time=max_wall_time,
+        alg="CRAB",
+        alg_params=alg_params,
+        optim_params=optim_params,
+        optim_method=optim_method,
+        method_params=method_params,
+        phase_option=phase_option,
+        dyn_params=dyn_params,
+        prop_params=prop_params,
+        fid_params=fid_params,
+        tslot_type=tslot_type,
+        tslot_params=tslot_params,
+        init_pulse_type=guess_pulse_type,
+        init_pulse_params=guess_pulse_params,
+        ramping_pulse_type=ramping_pulse_type,
+        ramping_pulse_params=ramping_pulse_params,
+        log_level=log_level,
+        out_file_ext=out_file_ext,
+        gen_stats=gen_stats,
+    )
+
 
 def create_pulse_optimizer(
     drift,
@@ -1847,6 +2487,9 @@ def create_pulse_optimizer(
             prop_type = "APPROX"
         if init_pulse_type is None or init_pulse_type.upper() == "DEF":
             init_pulse_type = None
+    # grafs_flag
+    elif alg_up == "GRAFS":
+        pass
     else:
         raise errors.UsageError(
             "No option for pulse optimisation algorithm alg={}".format(alg)
@@ -1933,6 +2576,8 @@ def create_pulse_optimizer(
             "Optimisation method must be specified "
             "via 'optim_method' parameter"
         )
+    # grafs_flag
+    # will need additional statements for each method for GRAFS
     elif optim_method_up == "FMIN_BFGS":
         optim = optimizer.OptimizerBFGS(cfg, dyn)
     elif optim_method_up == "LBFGSB" or optim_method_up == "FMIN_L_BFGS_B":
@@ -2087,7 +2732,9 @@ def create_pulse_optimizer(
             optim.pulse_generator.append(crab_pgen)
         # This is just for the debug message now
         pgen = optim.pulse_generator[0]
-
+    # grafs_flag
+    elif alg_up == "GRAFS":
+        pass
     else:
         # Create a pulse generator of the type specified
         pgen = pulsegen.create_pulse_gen(

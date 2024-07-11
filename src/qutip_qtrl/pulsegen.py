@@ -80,6 +80,9 @@ def create_pulse_gen(pulse_type="RND", dyn=None, pulse_params=None):
         return PulseGenCrabFourier(dyn, params=pulse_params)
     elif pulse_type == "GAUSSIAN_EDGE":
         return PulseGenGaussianEdge(dyn, params=pulse_params)
+    # grafs_flag
+    elif pulse_type == "insert_graf_pulse_type(s)":
+        pass
     else:
         raise ValueError("No option for pulse_type '{}'".format(pulse_type))
 
@@ -1321,3 +1324,8 @@ class PulseGenCrabFourier(PulseGenCrab):
             pulse = self._apply_ramping_pulse(pulse)
 
         return self._apply_bounds(pulse)
+
+
+# grafs_flag
+class PulseGenGrafs(PulseGen):
+    pass
