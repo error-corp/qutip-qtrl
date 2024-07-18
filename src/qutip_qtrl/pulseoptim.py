@@ -464,6 +464,7 @@ def optimize_pulse(
         ramping_pulse_params=ramping_pulse_params,
         log_level=log_level,
         gen_stats=gen_stats,
+        num_basis_funcs=None # not sure if this is best way to do it - check CRAB
     )
 
     dyn = optim.dynamics
@@ -1503,6 +1504,7 @@ def opt_pulse_grafs(
     max_iter=500,
     max_wall_time=180,
     alg_params=None,
+    num_basis_funcs=5, # check what default should be 
     num_coeffs=None,
     init_coeff_scaling=1.0, # check what default should be / if this is needed 
     optim_params=None,
@@ -1611,6 +1613,9 @@ def opt_pulse_grafs(
         given. It is crucial to the performane of the algorithm that it is set
         as low as possible, while still giving high enough frequencies.  Note
         this is overridden by alg_params (if given there).
+
+    num_basis_funcs : integer
+        grafs_flag (update)
 
     optim_method : string
         Multi-variable optimisation method.  The only tested options are 'fmin'
@@ -1810,6 +1815,7 @@ def opt_pulse_grafs(
         log_level=log_level,
         out_file_ext=out_file_ext,
         gen_stats=gen_stats,
+        num_basis_funcs=num_basis_funcs
     )
 
 
@@ -2123,6 +2129,7 @@ def opt_pulse_grafs_unitary(
         log_level=log_level,
         out_file_ext=out_file_ext,
         gen_stats=gen_stats,
+        num_basis_funcs=num_basis_funcs
     )
 
 
@@ -2489,7 +2496,11 @@ def create_pulse_optimizer(
             init_pulse_type = None
     # grafs_flag
     elif alg_up == "GRAFS":
-        pass
+        graf_pgen = pulsegen.PulseGenCrabSlepian(
+            dyn=dyn,
+            num_coeffs=num_tslots,
+            num_basis_funcs= 
+        )
     else:
         raise errors.UsageError(
             "No option for pulse optimisation algorithm alg={}".format(alg)

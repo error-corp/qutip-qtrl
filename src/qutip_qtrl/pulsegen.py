@@ -13,6 +13,7 @@ See the class and gen_pulse function descriptions for details
 """
 
 import numpy as np
+import scipy as sp
 
 import qutip_qtrl.dynamics as dynamics
 import qutip_qtrl.errors as errors
@@ -1328,4 +1329,34 @@ class PulseGenCrabFourier(PulseGenCrab):
 
 # grafs_flag
 class PulseGenGrafs(PulseGen):
-    pass
+    def __init__(self, dyn=None, num_coeffs=None, num_basis_funcs=None):
+        self.parent = dyn
+        self.num_coeffs = num_coeffs
+        self.num_basis_funcs = num_basis_funcs
+        self.reset()
+
+    def reset(self):
+        """
+        reset attributes to default values
+        """
+        PulseGen.reset(self)
+        self._uses_time = True
+        self.time = None
+        self.coeffs = None
+        self.randomize_coeffs = True
+        self._num_coeffs_estimated = False
+        self.apply_params()
+
+    def init_pulse(self, num_coeffs=None, init_coeffs=None):
+        PulseGen.init_pulse(self)
+        self.init_coeffs(num_coeffs=num_coeffs, init_coeffs=init_coeffs)
+
+
+    def init_coeffs(self, num_coeffs=None, init_coeffs=None):
+        self.num_optimal_vars = self.num_coeffs * self.num_basis_funcs
+
+
+class PulseGenGrafsSlepian(PulseGenGrafs):
+    def __init__(self, dyn=None, num_coeffs=None, num_basis_funcs=None):
+        PulseGenGrafs.__init__(self, dyn, num_coeffs, num_basis_funcs)
+        self.reset()
