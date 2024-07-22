@@ -138,6 +138,7 @@ def optimize_pulse(
     log_level=logging.NOTSET,
     out_file_ext=None,
     gen_stats=False,
+    num_basis_funcs=None
 ):
     """
     Optimise a control pulse to minimise the fidelity error.  The dynamics of
@@ -1494,6 +1495,7 @@ def opt_pulse_grafs(
     ctrls,
     initial,
     target,
+   # num_basis_funcs,
     num_tslots=None,
     evo_time=None,
     tau=None,
@@ -1529,7 +1531,7 @@ def opt_pulse_grafs(
     ramping_pulse_params=None,
     log_level=logging.NOTSET,
     out_file_ext=None,
-    gen_stats=False,
+    gen_stats=False
 ):
     """
     Optimise a control pulse to minimise the fidelity error.
@@ -1759,28 +1761,6 @@ def opt_pulse_grafs(
         ):
             alg_params["init_coeff_scaling"] = init_coeff_scaling
 
-    # Build the guess pulse options
-    # Any options passed in the guess_pulse_params take precedence
-    # over the parameter values.
-    if guess_pulse_type:
-        if not isinstance(guess_pulse_params, dict):
-            guess_pulse_params = {}
-        if (
-            guess_pulse_scaling is not None
-            and "scaling" not in guess_pulse_params
-        ):
-            guess_pulse_params["scaling"] = guess_pulse_scaling
-        if (
-            guess_pulse_offset is not None
-            and "offset" not in guess_pulse_params
-        ):
-            guess_pulse_params["offset"] = guess_pulse_offset
-        if (
-            guess_pulse_action is not None
-            and "pulse_action" not in guess_pulse_params
-        ):
-            guess_pulse_params["pulse_action"] = guess_pulse_action
-
     return optimize_pulse(
         drift,
         ctrls,
@@ -1808,8 +1788,6 @@ def opt_pulse_grafs(
         fid_params=fid_params,
         tslot_type=tslot_type,
         tslot_params=tslot_params,
-        init_pulse_type=guess_pulse_type,
-        init_pulse_params=guess_pulse_params,
         ramping_pulse_type=ramping_pulse_type,
         ramping_pulse_params=ramping_pulse_params,
         log_level=log_level,
@@ -1824,6 +1802,7 @@ def opt_pulse_grafs_unitary(
     H_c,
     U_0,
     U_targ,
+    num_basis_funcs=5, # check what default should be 
     num_tslots=None,
     evo_time=None,
     tau=None,
@@ -1855,7 +1834,7 @@ def opt_pulse_grafs_unitary(
     ramping_pulse_params=None,
     log_level=logging.NOTSET,
     out_file_ext=None,
-    gen_stats=False,
+    gen_stats=False
 ):
     """
     Optimise a control pulse to minimise the fidelity error, assuming that the
@@ -2075,28 +2054,6 @@ def opt_pulse_grafs_unitary(
         ):
             alg_params["init_coeff_scaling"] = init_coeff_scaling
 
-    # Build the guess pulse options
-    # Any options passed in the guess_pulse_params take precedence
-    # over the parameter values.
-    if guess_pulse_type:
-        if not isinstance(guess_pulse_params, dict):
-            guess_pulse_params = {}
-        if (
-            guess_pulse_scaling is not None
-            and "scaling" not in guess_pulse_params
-        ):
-            guess_pulse_params["scaling"] = guess_pulse_scaling
-        if (
-            guess_pulse_offset is not None
-            and "offset" not in guess_pulse_params
-        ):
-            guess_pulse_params["offset"] = guess_pulse_offset
-        if (
-            guess_pulse_action is not None
-            and "pulse_action" not in guess_pulse_params
-        ):
-            guess_pulse_params["pulse_action"] = guess_pulse_action
-
     return optimize_pulse_unitary(
         H_d,
         H_c,
@@ -2122,8 +2079,6 @@ def opt_pulse_grafs_unitary(
         fid_params=fid_params,
         tslot_type=tslot_type,
         tslot_params=tslot_params,
-        init_pulse_type=guess_pulse_type,
-        init_pulse_params=guess_pulse_params,
         ramping_pulse_type=ramping_pulse_type,
         ramping_pulse_params=ramping_pulse_params,
         log_level=log_level,

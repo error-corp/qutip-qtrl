@@ -1329,9 +1329,9 @@ class PulseGenCrabFourier(PulseGenCrab):
 
 # grafs_flag
 class PulseGenGrafs(PulseGen):
-    def __init__(self, dyn=None, num_coeffs=None, num_basis_funcs=None):
+    def __init__(self, dyn=None, num_basis_funcs=None):
         self.parent = dyn
-        self.num_coeffs = num_coeffs
+        self.num_ctrls = dyn._num_ctrls
         self.num_basis_funcs = num_basis_funcs
         self.reset()
 
@@ -1347,16 +1347,68 @@ class PulseGenGrafs(PulseGen):
         self._num_coeffs_estimated = False
         self.apply_params()
 
-    def init_pulse(self, num_coeffs=None, init_coeffs=None):
+    def init_pulse(self, init_coeffs=None):
         PulseGen.init_pulse(self)
-        self.init_coeffs(num_coeffs=num_coeffs, init_coeffs=init_coeffs)
+        self.init_coeffs(init_coeffs=init_coeffs)
 
 
     def init_coeffs(self, num_coeffs=None, init_coeffs=None):
-        self.num_optimal_vars = self.num_coeffs * self.num_basis_funcs
+        self.num_optimal_vars = self.num_basis_funcs * self.num_ctrls
+        if init_coeffs is not None:
+            self.set_coeffs(init_coeffs)
+        elif self.randomize_coeffs:
+            self.coeffs = np.random.random([self.num_basis_funcs, self.num_ctrls])
+           # self.coeffs = (2 * r - 1.0) * self.scaling -- confirm this is handled by slepian and not needed for grafs
+        else:
+            self.coeffs = (
+                np.ones([self.num_basis_funcs, self.num_ctrls]) # confirm this should be ones and not zeros / if scaling factor needed as in crab
+            )
+
+    def get_optim_var_vals(self):
+        return self.coeffs.ravel().tolist()
+    
+    def set_optim_var_vals(self, param_vals):
+        self.set_coeffs(param_vals)
+
+    def set_coeffs(self, param_vals):
+        self.coeffs = param_vals.reshape(
+            [self.num_basis_funcs, self.num_ctrls]
+        )
+
+    def init_guess_pulse(self):
+        # determine if this is needed 
+        pass
+
+    def _init_bounds(self):
+        # don't think this is needed 
+        # if it is needed need to add a few more methods 
+        pass
 
 
 class PulseGenGrafsSlepian(PulseGenGrafs):
     def __init__(self, dyn=None, num_coeffs=None, num_basis_funcs=None):
         PulseGenGrafs.__init__(self, dyn, num_coeffs, num_basis_funcs)
         self.reset()
+
+    def reset(self):
+        """
+        reset attribbutes to default values
+        """
+        PulseGenCrab.reset(self)
+        self.randomize_freqs = True
+
+    def init_pulse(self, num_coeffs=None, init_coeffs=None):
+        PulseGenCrab.init_pulse(
+            self, num_coeffs=num_coeffs, init_coeffs=init_coeffs
+        )
+
+        self.init_freqs()
+
+    def gen_pulse(self):
+        """
+        Generate slepian function sequences
+        """
+        nw = self.num_tslots * .1
+        V = sp.signal.windows.dpss(self.num_tslots, nw, self.num_basis_funcs).T
+        return V 
+    
