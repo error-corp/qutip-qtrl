@@ -1312,9 +1312,75 @@ class OptimizerCrabFmin(OptimizerCrab):
 
 # grafs_flag
 class OptimizerGrafs(Optimizer):
-    pass
+    def reset(self):
+        Optimizer.reset(self)
+        self.id_text = "GRAFS"
+    
+    def init_optim(self, term_conds):
+        Optimizer.init_optim(self, term_conds)
+        dyn = self.dynamics 
 
+        self,num_optim_vars = 0
+        pulse_gen_valid = True
+        # check the pulse generators match the ctrls
+        # (in terms of number)
+        # and count the number of parameters
+        if self.pulse_generator is None:
+            pulse_gen_valid = False
+            err_msg = "pulse_generator attribute is None"
+        elif not isinstance(self.pulse_generator, collections.abc.Iterable):
+            pulse_gen_valid = False
+            err_msg = "pulse_generator is not iterable"
 
+        elif len(self.pulse_generator) != dyn.num_ctrls:
+            pulse_gen_valid = False
+            err_msg = (
+                "the number of pulse generators {} does not equal "
+                "the number of controls {}".format(
+                    len(self.pulse_generator), dyn.num_ctrls
+                )
+            )
+
+        if pulse_gen_valid:
+            for p_gen in self.pulse_generator:
+                if not isinstance(p_gen, pulsegen.PulseGenGrafs):
+                    pulse_gen_valid = False
+                    err_msg = (
+                        "pulse_generator contained object of type '{}'".format(
+                            p_gen.__class__.__name__
+                        )
+                    )
+                    break
+                self.num_optim_vars += p_gen.num_optim_vars
+
+        if not pulse_gen_valid:
+            raise errors.UsageError(
+                "The pulse_generator attribute must be set to a list of "
+                "PulseGenCrab - one for each control. Here " + err_msg
+            )
+    def _get_optim_var_vals(self):
+        """
+        Generate the 1d array that holds the current variable values
+        of the function to be optimised
+        For GRAFS these are the basis function coefficients
+
+        Returns
+        -------
+        ndarray (1d) of float
+        """
+        return self.pulse_generator.get_optim_var_vals()
+    
+    def _get_ctrl_amps(self, optim_var_vals):
+        """
+        Confirm these calculations
+        """
+        dyn = self.dynamics 
+        coeffs = np.array(optim_var_vals).reshape(self.num_basis_funcs, dyn.num_ctrls)
+        basis_function_array = self.pulse_generator.get_pulse()
+        amps = np.matmul(basis_function_array, coeffs)
+        return amps # let's confirm dimensions 
+
+ 
 class OptimIterSummary(qtrldump.DumpSummaryItem):
     """
     A summary of the most recent iteration of the pulse optimisation

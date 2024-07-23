@@ -465,7 +465,7 @@ def optimize_pulse(
         ramping_pulse_params=ramping_pulse_params,
         log_level=log_level,
         gen_stats=gen_stats,
-        num_basis_funcs=None # not sure if this is best way to do it - check CRAB
+        num_basis_funcs=num_basis_funcs # not sure if this is best way to do it - check CRAB
     )
 
     dyn = optim.dynamics
@@ -2103,6 +2103,7 @@ def create_pulse_optimizer(
     max_iter=500,
     max_wall_time=180,
     alg="GRAPE",
+    num_basis_funcs=None,
     alg_params=None,
     optim_params=None,
     optim_method="DEF",
@@ -2454,7 +2455,7 @@ def create_pulse_optimizer(
         graf_pgen = pulsegen.PulseGenCrabSlepian(
             dyn=dyn,
             num_coeffs=num_tslots,
-            num_basis_funcs= 
+            num_basis_funcs=num_basis_funcs,
         )
     else:
         raise errors.UsageError(

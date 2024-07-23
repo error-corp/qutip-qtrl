@@ -82,8 +82,8 @@ def create_pulse_gen(pulse_type="RND", dyn=None, pulse_params=None):
     elif pulse_type == "GAUSSIAN_EDGE":
         return PulseGenGaussianEdge(dyn, params=pulse_params)
     # grafs_flag
-    elif pulse_type == "insert_graf_pulse_type(s)":
-        pass
+    elif pulse_type == "GRAFS_SLEPIAN":
+        return PulseGenGrafs(dyn, params=pulse_params)
     else:
         raise ValueError("No option for pulse_type '{}'".format(pulse_type))
 
@@ -1384,6 +1384,9 @@ class PulseGenGrafs(PulseGen):
         # if it is needed need to add a few more methods 
         pass
 
+    
+    def get_pulse(self):
+        return self.gen_pulse()
 
 class PulseGenGrafsSlepian(PulseGenGrafs):
     def __init__(self, dyn=None, num_coeffs=None, num_basis_funcs=None):
