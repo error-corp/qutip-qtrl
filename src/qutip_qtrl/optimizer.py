@@ -1380,7 +1380,24 @@ class OptimizerGrafs(Optimizer):
         amps = np.matmul(basis_function_array, coeffs)
         return amps # let's confirm dimensions 
 
- 
+    def run_optimization(self, term_conds=None):
+        self.init_optim(term_conds)
+        term_conds = self.termination_conditions 
+        dyn = self.dynamics
+        cfg = self.config
+        self.optim_var_vals = self._get_optim_var_vals()
+        self._build_method_options()
+
+        st_time = timeit.default_timer()
+        self.wall_time_optimize_start = st_time
+
+        if self.stats is not None:
+            self.stats.wall_time_optim_start = st_time
+            self.stats.wall_time_optim_end = 0.0
+            self.stats.num_iter = 1
+
+        bounds = self._build_bounds_list()
+        result = self._create_result()
 class OptimIterSummary(qtrldump.DumpSummaryItem):
     """
     A summary of the most recent iteration of the pulse optimisation
