@@ -992,6 +992,40 @@ class FidcompGrafs(FidelityComputer):
         self.epsilon = 0.001
         self.apply_params()
 
+
+    def compute_evo_grad(self):
+        """
+        Computes Jacobian of final time evolution operator with respect to controls
+        """
+        dyn = self.parent
+        n_ctrls = dyn.num_ctrls
+        n_ts = dyn.num_tslots
+
+        # create n_ts x n_ctrls zero array for grad start point
+        grad = np.zeros([n_ts, n_ctrls])
+        time_st = timeit.default_timer()
+
+        for j in range(n_ctrls):
+            for k in range(n_ts):
+                fwd_evo = dyn._fwd_evo[k]
+                if dyn.oper_dtype == Qobj:
+                    evo_grad = dyn._get_prop_grad(k, j) * fwd_evo
+                    if k + 1 < n_ts:
+                        evo_grad = dyn._onwd_evo[k + 1] * evo_grad
+                else:
+                    evo_grad = dyn._get_prop_grad(k, j).dot(fwd_evo)
+                    if k + 1 < n_ts:
+                        evo_grad = dyn._onwd_evo[k + 1].dot(evo_grad)
+                if np.isnan(g):
+                    g = np.Inf
+
+                grad[k, j] = g
+        if dyn.stats is not None:
+            dyn.stats.wall_time_gradient_compute += (
+                timeit.default_timer() - time_st
+            )
+        return grad
+        
     def compute_fid_err_grad(self):
         """
         Calculates gradient of function wrt to each timeslot
@@ -999,55 +1033,4 @@ class FidcompGrafs(FidelityComputer):
         They are calulated
         These are returned as a (nTimeslots x n_ctrls) array
         """
-        dyn = self.parent
-        prop_comp = dyn.prop_computer
-        n_ctrls = dyn.num_ctrls
-        n_ts = dyn.num_tslots
-
-        if self.log_level >= logging.DEBUG:
-            logger.debug("Computing fidelity error gradient")
-        # create n_ts x n_ctrls zero array for grad start point
-        grad = np.zeros([n_ts, n_ctrls])
-
-        dyn.tslot_computer.flag_all_calc_now()
-        dyn.compute_evolution()
-        curr_fid_err = self.get_fid_err()
-
-        # loop through all ctrl timeslots calculating gradients
-        time_st = timeit.default_timer()
-
-        for j in range(n_ctrls):
-            for k in range(n_ts):
-                fwd_evo = dyn._fwd_evo[k]
-                prop_eps = prop_comp._compute_diff_prop(k, j, self.epsilon)
-                if dyn.oper_dtype == Qobj:
-                    evo_final_eps = fwd_evo * prop_eps
-                    if k + 1 < n_ts:
-                        evo_final_eps = evo_final_eps * dyn._onwd_evo[k + 1]
-                    evo_f_diff_eps = dyn._target - evo_final_eps
-                    # Note that the value should have not imagnary part, so
-                    # using np.real, just avoids the complex casting warning
-                    fid_err_eps = self.scale_factor * np.real(
-                        (evo_f_diff_eps.dag() * evo_f_diff_eps).tr()
-                    )
-                else:
-                    evo_final_eps = fwd_evo.dot(prop_eps)
-                    if k + 1 < n_ts:
-                        evo_final_eps = evo_final_eps.dot(dyn._onwd_evo[k + 1])
-                    evo_f_diff_eps = dyn._target - evo_final_eps
-                    fid_err_eps = self.scale_factor * np.real(
-                        _trace(evo_f_diff_eps.conj().T.dot(evo_f_diff_eps))
-                    )
-
-                g = (fid_err_eps - curr_fid_err) / self.epsilon
-                if np.isnan(g):
-                    g = np.Inf
-
-                grad[k, j] = g
-
-        if dyn.stats is not None:
-            dyn.stats.wall_time_gradient_compute += (
-                timeit.default_timer() - time_st
-            )
-
-        return grad
+        # crucial method - consult with Dennis to nail down math for thisß

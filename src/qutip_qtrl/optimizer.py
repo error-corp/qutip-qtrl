@@ -1396,8 +1396,12 @@ class OptimizerGrafs(Optimizer):
             self.stats.wall_time_optim_end = 0.0
             self.stats.num_iter = 1
 
-        bounds = self._build_bounds_list()
+    #    bounds = self._build_bounds_list() # ensure this isn't needed
         result = self._create_result()
+
+        fprime = self.fid_err_grad_wrapper # need
+
+        
 class OptimIterSummary(qtrldump.DumpSummaryItem):
     """
     A summary of the most recent iteration of the pulse optimisation
