@@ -412,6 +412,7 @@ class Dynamics(object):
         self._dyn_gen_eigenvectors_adj = None
         self._dyn_gen_factormatrix = None
         self.fact_mat_round_prec = 1e-10
+        self.basis_function_matrix = None
 
         # Debug and information attribs
         self.stats = None
