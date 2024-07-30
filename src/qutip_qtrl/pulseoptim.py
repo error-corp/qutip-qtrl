@@ -479,6 +479,9 @@ def optimize_pulse(
             pgen = optim.pulse_generator[j]
             pgen.init_pulse()
             init_amps[:, j] = pgen.gen_pulse()
+    if alg == "GRAFS":
+        pgen = optim.pulse_generator
+        init_amps = pgen.gen_pulse()
     else:
         pgen = optim.pulse_generator
         for j in range(dyn.num_ctrls):
@@ -1775,7 +1778,7 @@ def opt_pulse_grafs(
         min_grad=0.0,
         max_iter=max_iter,
         max_wall_time=max_wall_time,
-        alg="CRAB",
+        alg="GRAFS",
         alg_params=alg_params,
         optim_params=optim_params,
         optim_method=optim_method,
@@ -2452,11 +2455,7 @@ def create_pulse_optimizer(
             init_pulse_type = None
     # grafs_flag
     elif alg_up == "GRAFS":
-        graf_pgen = pulsegen.PulseGenCrabSlepian(
-            dyn=dyn,
-            num_coeffs=num_tslots,
-            num_basis_funcs=num_basis_funcs,
-        )
+        pass
     else:
         raise errors.UsageError(
             "No option for pulse optimisation algorithm alg={}".format(alg)
@@ -2701,7 +2700,12 @@ def create_pulse_optimizer(
         pgen = optim.pulse_generator[0]
     # grafs_flag
     elif alg_up == "GRAFS":
-        pass
+        pgen = pulsegen.PulseGenGrafsSlepian(
+            num_coeffs=num_tslots,
+            num_basis_funcs=num_basis_funcs,
+            dyn=dyn
+        )
+        optim.pulse_generator = pgen
     else:
         # Create a pulse generator of the type specified
         pgen = pulsegen.create_pulse_gen(

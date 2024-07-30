@@ -1320,7 +1320,7 @@ class OptimizerGrafs(Optimizer):
         Optimizer.init_optim(self, term_conds)
         dyn = self.dynamics 
 
-        self,num_optim_vars = 0
+        self.num_optim_vars = 0
         pulse_gen_valid = True
         # check the pulse generators match the ctrls
         # (in terms of number)
@@ -1384,6 +1384,7 @@ class OptimizerGrafs(Optimizer):
         self.init_optim(term_conds)
         term_conds = self.termination_conditions 
         dyn = self.dynamics
+        dyn.basis_function_matrix = self.pulse_generator.get_pulse()
         cfg = self.config
         self.optim_var_vals = self._get_optim_var_vals()
         self._build_method_options()
@@ -1401,7 +1402,7 @@ class OptimizerGrafs(Optimizer):
 
         fprime = self.fid_err_grad_wrapper # need
 
-        
+
 class OptimIterSummary(qtrldump.DumpSummaryItem):
     """
     A summary of the most recent iteration of the pulse optimisation

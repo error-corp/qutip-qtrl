@@ -1329,10 +1329,11 @@ class PulseGenCrabFourier(PulseGenCrab):
 
 # grafs_flag
 class PulseGenGrafs(PulseGen):
-    def __init__(self, dyn=None, num_basis_funcs=None):
+    def __init__(self, dyn=None, num_basis_funcs=None, num_coeffs=None):
         self.parent = dyn
         self.num_ctrls = dyn._num_ctrls
         self.num_basis_funcs = num_basis_funcs
+        self.params = None
         self.reset()
 
     def reset(self):

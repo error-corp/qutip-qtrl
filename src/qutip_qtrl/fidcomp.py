@@ -1026,6 +1026,31 @@ class FidcompGrafs(FidelityComputer):
             )
         return grad
         
+    def compute_coefficient_gradient(self):
+        dyn = self.parent
+        n_ctrls = dyn.num_ctrls
+        n_ts = dyn.num_tslots
+        
+
+        evo_grad = self.compute_evo_grad()
+        basis_matrix = dyn.basis_function_matrix # ensure this gets updated correctly
+        _, num_basis_funcs = basis_matrix.shape
+        # figure out the axes - tensor dot along l 
+        grad = np.zeros([num_basis_funcs, n_ctrls])
+        for k in range(num_basis_funcs):
+            for j in range(n_ctrls):
+                grad[k, j] = np.sum(basis_matrix[:, k] * evo_grad[:, j])
+        return grad 
+
+
+
+
+    def compute_fidelity(self):
+        dyn = self.parent
+        prod = dyn._target.dag() * dyn._fwd_evo[dyn.num_tslots] # ensure correct
+        return np.real(prod.tr())
+
+
     def compute_fid_err_grad(self):
         """
         Calculates gradient of function wrt to each timeslot
@@ -1033,4 +1058,9 @@ class FidcompGrafs(FidelityComputer):
         They are calulated
         These are returned as a (nTimeslots x n_ctrls) array
         """
-        # crucial method - consult with Dennis to nail down math for thisß
+        # crucial method - consult with Dennis to nail down math for this
+        dyn = self.parent
+        evo_grad = self.compute_evo_grad()
+        tensor = np.tensordot(dyn.basis_function_matrix, evo_grad, axes=([0]))
+        prod = dyn._target.dag() * tensor
+        return np.real(prod.tr())
