@@ -1402,6 +1402,23 @@ class OptimizerGrafs(Optimizer):
 
         fprime = self.fid_err_grad_wrapper # need
 
+        try:
+            optim_var_vals, fid, res_dict = fmin_l_bfgs_b(
+                self.fid_err_func_wrapper,
+                self.optim_var_vals,
+                fprime=fprime,
+                approx_grad=self.approx_grad,
+                callback=self.iter_step_callback_func,
+                bounds=self.bounds,
+                m=m,
+                factr=factr,
+                pgtol=term_conds.min_gradient_norm,
+                disp=self.msg_level,
+                maxfun=term_conds.max_fid_func_calls,
+                maxiter=term_conds.max_iterations,
+            )
+        except errors.OptimizationTerminate as except_term:
+            self._interpret_term_exception(except_term, result)
 
 class OptimIterSummary(qtrldump.DumpSummaryItem):
     """

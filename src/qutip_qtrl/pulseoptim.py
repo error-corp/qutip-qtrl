@@ -2455,7 +2455,7 @@ def create_pulse_optimizer(
             init_pulse_type = None
     # grafs_flag
     elif alg_up == "GRAFS":
-        pass
+        optim_method = "GRAFS"
     else:
         raise errors.UsageError(
             "No option for pulse optimisation algorithm alg={}".format(alg)
@@ -2557,6 +2557,8 @@ def create_pulse_optimizer(
                     optim_method, alg
                 )
             )
+    elif optim_method_up == "GRAFS":
+        optim = optimizer.OptimizerGrafs(cfg, dyn)
     else:
         # Assume that the optim_method is a valid
         # scipy.optimize.minimize method
