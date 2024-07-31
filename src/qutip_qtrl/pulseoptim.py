@@ -480,8 +480,11 @@ def optimize_pulse(
             pgen.init_pulse()
             init_amps[:, j] = pgen.gen_pulse()
     if alg == "GRAFS":
-        pgen = optim.pulse_generator
-        init_amps = pgen.gen_pulse()
+        for j in range(dyn.num_ctrls):
+            pgen = optim.pulse_generator[j]
+            pgen.init_pulse()
+            init_amps[:, j] = pgen.gen_pulse()
+
     else:
         pgen = optim.pulse_generator
         for j in range(dyn.num_ctrls):
@@ -2702,12 +2705,14 @@ def create_pulse_optimizer(
         pgen = optim.pulse_generator[0]
     # grafs_flag
     elif alg_up == "GRAFS":
-        pgen = pulsegen.PulseGenGrafsSlepian(
-            num_coeffs=num_tslots,
-            num_basis_funcs=num_basis_funcs,
-            dyn=dyn
-        )
-        optim.pulse_generator = pgen
+        optim.pulse_generator = []
+        for j in range(n_ctrls):
+            pgen = pulsegen.PulseGenGrafsSlepian(
+                num_coeffs=num_tslots,
+                num_basis_funcs=num_basis_funcs,
+                dyn=dyn
+            )
+            optim.pulse_generator.append(pgen)
     else:
         # Create a pulse generator of the type specified
         pgen = pulsegen.create_pulse_gen(

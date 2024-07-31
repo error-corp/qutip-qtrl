@@ -1406,7 +1406,7 @@ class PulseGenGrafsSlepian(PulseGenGrafs):
             self, num_coeffs=num_coeffs, init_coeffs=init_coeffs
         )
 
-        self.init_freqs()
+        self.init_coeffs()
 
     def gen_pulse(self):
         """
@@ -1414,5 +1414,6 @@ class PulseGenGrafsSlepian(PulseGenGrafs):
         """
         nw = self.num_tslots * .1
         V = sp.signal.windows.dpss(self.num_tslots, nw, self.num_basis_funcs).T
-        return V 
+        A = self.coeffs
+        return np.matmul(V, A)
     
