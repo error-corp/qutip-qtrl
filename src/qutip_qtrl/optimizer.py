@@ -1368,23 +1368,54 @@ class OptimizerGrafs(Optimizer):
         -------
         ndarray (1d) of float
         """
-        return self.pulse_generator.get_optim_var_vals()
-    
+        pvals = []
+        for pgen in self.pulse_generator:
+            pvals.extend(pgen.get_optim_var_vals())
+
+        return np.array(pvals)
+
     def _get_ctrl_amps(self, optim_var_vals):
         """
-        Confirm these calculations
+        Get the control amplitudes from the current variable values
+        of the function to be optimised.
+        that is the 1d array that is passed from the optimisation method
+        For CRAB the amplitudes will need to calculated by expanding the
+        series
+
+        Returns
+        -------
+        float array[dynamics.num_tslots, dynamics.num_ctrls]
         """
-        dyn = self.dynamics 
-        coeffs = np.array(optim_var_vals).reshape(self.num_basis_funcs, dyn.num_ctrls)
-        basis_function_array = self.pulse_generator.get_pulse()
-        amps = np.matmul(basis_function_array, coeffs)
-        return amps # let's confirm dimensions 
+        dyn = self.dynamics
+
+        if self.log_level <= logging.DEBUG:
+            changed_params = self.optim_var_vals != optim_var_vals
+            logger.debug(
+                "{} out of {} optimisation parameters changed".format(
+                    changed_params.sum(), len(optim_var_vals)
+                )
+            )
+
+        amps = np.empty([dyn.num_tslots, dyn.num_ctrls])
+        j = 0
+        param_idx_st = 0
+        for p_gen in self.pulse_generator:
+            param_idx_end = param_idx_st + p_gen.num_optim_vars
+            pg_pvals = optim_var_vals[param_idx_st:param_idx_end]
+            p_gen.set_optim_var_vals(pg_pvals)
+            amps[:, j] = p_gen.gen_pulse()
+            param_idx_st = param_idx_end
+            j += 1
+
+        self.optim_var_vals = optim_var_vals
+        return amps
+
 
     def run_optimization(self, term_conds=None):
         self.init_optim(term_conds)
         term_conds = self.termination_conditions 
         dyn = self.dynamics
-        dyn.basis_function_matrix = self.pulse_generator.get_pulse()
+    
         cfg = self.config
         self.optim_var_vals = self._get_optim_var_vals()
         self._build_method_options()
@@ -1410,10 +1441,10 @@ class OptimizerGrafs(Optimizer):
                 approx_grad=self.approx_grad,
                 callback=self.iter_step_callback_func,
                 bounds=self.bounds,
-                m=m,
-                factr=factr,
+            #    m=m,
+              #  factr=factr,
                 pgtol=term_conds.min_gradient_norm,
-                disp=self.msg_level,
+            #    disp=self.msg_level,
                 maxfun=term_conds.max_fid_func_calls,
                 maxiter=term_conds.max_iterations,
             )
