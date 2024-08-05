@@ -469,6 +469,7 @@ def optimize_pulse(
     )
 
     dyn = optim.dynamics
+    dyn.alg = alg
 
     dyn.init_timeslots()
     # Generate initial pulses for each control
@@ -1746,6 +1747,10 @@ def opt_pulse_grafs(
 
     # The parameters are checked in create_pulse_optimizer
     # so no need to do so here
+    if dyn_params is None:
+        dyn_params = {"alg": "GRAFS"}
+    else:
+        dyn_params["alg"] = "GRAFS"
 
     if log_level == logging.NOTSET:
         log_level = logger.getEffectiveLevel()
@@ -2039,7 +2044,11 @@ def opt_pulse_grafs_unitary(
 
     # The parameters are checked in create_pulse_optimizer
     # so no need to do so here
-
+    if dyn_params is None:
+       dyn_params = {"alg": "GRAFS"}
+    else:
+        dyn_params["alg"] = "GRAFS"
+    
     if log_level == logging.NOTSET:
         log_level = logger.getEffectiveLevel()
     else:
@@ -2471,6 +2480,9 @@ def create_pulse_optimizer(
     cfg.fid_type = fid_type
     cfg.init_pulse_type = init_pulse_type
 
+    if alg_up == "GRAFS":
+        cfg.alg = "GRAFS"
+
     if log_level == logging.NOTSET:
         log_level = logger.getEffectiveLevel()
     else:
@@ -2705,6 +2717,7 @@ def create_pulse_optimizer(
         pgen = optim.pulse_generator[0]
     # grafs_flag
     elif alg_up == "GRAFS":
+        dyn.alg = dyn_params["alg"]
         optim.pulse_generator = []
         for j in range(n_ctrls):
             pgen = pulsegen.PulseGenGrafsSlepian(

@@ -413,7 +413,6 @@ class Dynamics(object):
         self._dyn_gen_factormatrix = None
         self.fact_mat_round_prec = 1e-10
         self.basis_function_matrix = None
-
         # Debug and information attribs
         self.stats = None
         self.id_text = "DYN_BASE"
@@ -533,7 +532,10 @@ class Dynamics(object):
             self.tslot_computer = tslotcomp.TSlotCompUpdateAll(self)
 
         self.prop_computer = propcomp.PropCompFrechet(self)
-        self.fid_computer = fidcomp.FidCompTraceDiff(self)
+        if self.config.alg == "GRAFS":
+            self.fid_computer = fidcomp.FidCompGrafs(self)
+        else:
+            self.fid_computer = fidcomp.FidCompTraceDiff(self)
 
     def clear(self):
         self.ctrl_amps = None
@@ -1557,7 +1559,10 @@ class DynamicsUnitary(Dynamics):
         else:
             self.tslot_computer = tslotcomp.TSlotCompUpdateAll(self)
         # set the default fidelity computer
-        self.fid_computer = fidcomp.FidCompUnitary(self)
+        if self.config.alg == "GRAFS":
+            self.fid_computer = fidcomp.FidCompGrafs(self)
+        else:
+            self.fid_computer = fidcomp.FidCompUnitary(self)
         # set the default propagator computer
         self.prop_computer = propcomp.PropCompDiag(self)
 

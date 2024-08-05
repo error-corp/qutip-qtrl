@@ -1350,7 +1350,7 @@ class PulseGenGrafs(PulseGen):
 
     def init_pulse(self, init_coeffs=None):
         PulseGen.init_pulse(self)
-        self.num_optim_vars = self.num_coeffs * self.num_basis_funcs
+        self.num_optim_vars = self.num_basis_funcs
         self.init_coeffs(init_coeffs=init_coeffs)
 
 
@@ -1403,11 +1403,10 @@ class PulseGenGrafsSlepian(PulseGenGrafs):
         self.randomize_freqs = True
 
     def init_pulse(self, num_coeffs=None, init_coeffs=None):
-        PulseGenCrab.init_pulse(
-            self, num_coeffs=num_coeffs, init_coeffs=init_coeffs
-        )
+        PulseGenGrafs.init_pulse(self)
 
         self.init_coeffs()
+        
 
     def gen_pulse(self):
         """

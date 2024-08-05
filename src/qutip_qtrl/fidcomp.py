@@ -972,7 +972,7 @@ class FidCompTraceDiff(FidelityComputer):
         return grad
 
 
-class FidcompGrafs(FidelityComputer):
+class FidCompGrafs(FidelityComputer):
     """
     As FidCompTraceDiff, except uses the finite difference method to
     compute approximate gradients
@@ -1045,10 +1045,12 @@ class FidcompGrafs(FidelityComputer):
 
 
 
-    def compute_fidelity(self):
+    def get_fid_err(self):
         dyn = self.parent
-        prod = dyn._target.dag() * dyn._fwd_evo[dyn.num_tslots] # ensure correct
-        return np.real(prod.tr())
+        dyn.compute_evolution()
+        prod = dyn._target.conj().T * dyn._fwd_evo[dyn.num_tslots] # ensure correct
+        return np.real(np.trace(prod))
+
 
 
     def compute_fid_err_grad(self):
@@ -1060,7 +1062,8 @@ class FidcompGrafs(FidelityComputer):
         """
         # crucial method - consult with Dennis to nail down math for this
         dyn = self.parent
+        dyn.compute_evolution()
         evo_grad = self.compute_evo_grad()
         tensor = np.tensordot(dyn.basis_function_matrix, evo_grad, axes=([0]))
-        prod = dyn._target.dag() * tensor
-        return np.real(prod.tr())
+        prod = dyn._target.conj().T * tensor
+        return np.real(np.trace(prod)) #
