@@ -1329,9 +1329,9 @@ class PulseGenCrabFourier(PulseGenCrab):
 
 # grafs_flag
 class PulseGenGrafs(PulseGen):
-    def __init__(self, dyn=None, num_basis_funcs=None, num_coeffs=None):
+    def __init__(self, dyn=None, num_tslots = None, num_basis_funcs=None):
         self.parent = dyn
-        self.num_ctrls = dyn._num_ctrls
+        self.num_tslots = num_tslots
         self.num_basis_funcs = num_basis_funcs
         self.params = None
         self.reset()
@@ -1354,16 +1354,16 @@ class PulseGenGrafs(PulseGen):
         self.init_coeffs(init_coeffs=init_coeffs)
 
 
-    def init_coeffs(self, num_coeffs=None, init_coeffs=None):
+    def init_coeffs(self, init_coeffs=None):
         self.num_optimal_vars = self.num_basis_funcs * self.num_ctrls
         if init_coeffs is not None:
             self.set_coeffs(init_coeffs)
         elif self.randomize_coeffs:
-            self.coeffs = np.random.random([self.num_basis_funcs, self.num_ctrls])
+            self.coeffs = np.random.random(self.num_basis_funcs)
            # self.coeffs = (2 * r - 1.0) * self.scaling -- confirm this is handled by slepian and not needed for grafs
         else:
             self.coeffs = (
-                np.ones([self.num_basis_funcs, self.num_ctrls]) # confirm this should be ones and not zeros / if scaling factor needed as in crab
+                np.ones(self.num_basis_funcs) # confirm this should be ones and not zeros / if scaling factor needed as in crab
             )
 
     def get_optim_var_vals(self):
@@ -1373,9 +1373,7 @@ class PulseGenGrafs(PulseGen):
         self.set_coeffs(param_vals)
 
     def set_coeffs(self, param_vals):
-        self.coeffs = param_vals.reshape(
-            [self.num_basis_funcs, self.num_ctrls]
-        )
+        self.coeffs = param_vals
 
     def init_guess_pulse(self):
         # determine if this is needed 
@@ -1391,8 +1389,8 @@ class PulseGenGrafs(PulseGen):
         return self.gen_pulse()
 
 class PulseGenGrafsSlepian(PulseGenGrafs):
-    def __init__(self, dyn=None, num_coeffs=None, num_basis_funcs=None):
-        PulseGenGrafs.__init__(self, dyn, num_coeffs, num_basis_funcs)
+    def __init__(self, dyn=None, num_tslots=None, num_basis_funcs=None):
+        PulseGenGrafs.__init__(self, dyn, num_tslots, num_basis_funcs)
         self.reset()
 
     def reset(self):
