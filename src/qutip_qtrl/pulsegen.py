@@ -1355,7 +1355,7 @@ class PulseGenGrafs(PulseGen):
 
 
     def init_coeffs(self, init_coeffs=None):
-        self.num_optimal_vars = self.num_basis_funcs * self.num_ctrls
+        self.num_optimal_vars = self.num_basis_funcs 
         if init_coeffs is not None:
             self.set_coeffs(init_coeffs)
         elif self.randomize_coeffs:
@@ -1404,14 +1404,18 @@ class PulseGenGrafsSlepian(PulseGenGrafs):
         PulseGenGrafs.init_pulse(self)
 
         self.init_coeffs()
-        
 
+    def get_basis_function(self):
+        nw = self.num_tslots * .1
+        V = sp.signal.windows.dpss(self.num_tslots, nw, self.num_basis_funcs).T
+        return V
+    
     def gen_pulse(self):
         """
         Generate slepian function sequences
         """
-        nw = self.num_tslots * .1
-        V = sp.signal.windows.dpss(self.num_tslots, nw, self.num_basis_funcs).T
+
+        V = self.get_basis_function()
         A = self.coeffs
         return np.matmul(V, A).reshape(-1)
-    
+        

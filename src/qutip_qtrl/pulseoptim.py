@@ -2721,7 +2721,7 @@ def create_pulse_optimizer(
         optim.pulse_generator = []
         for j in range(n_ctrls):
             pgen = pulsegen.PulseGenGrafsSlepian(
-                num_coeffs=num_tslots,
+                num_tslots=num_tslots,
                 num_basis_funcs=num_basis_funcs,
                 dyn=dyn
             )

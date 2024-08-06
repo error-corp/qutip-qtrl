@@ -1374,6 +1374,10 @@ class OptimizerGrafs(Optimizer):
 
         return np.array(pvals)
 
+    def _get_basis_function_matrix(self):
+        # all pulse generators use same slepian function (as of now)
+
+        return self.pulse_generator[0].get_basis_function()
     def _get_ctrl_amps(self, optim_var_vals):
         """
         Get the control amplitudes from the current variable values
@@ -1418,6 +1422,7 @@ class OptimizerGrafs(Optimizer):
     
         cfg = self.config
         self.optim_var_vals = self._get_optim_var_vals()
+        dyn.basis_function_matrix = self._get_basis_function_matrix()
         self._build_method_options()
 
         st_time = timeit.default_timer()
