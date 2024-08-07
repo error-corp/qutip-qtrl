@@ -1002,7 +1002,8 @@ class FidCompGrafs(FidelityComputer):
         n_ts = dyn.num_tslots
 
         # create n_ts x n_ctrls zero array for grad start point
-        grad = np.zeros([n_ts, n_ctrls])
+     #   grad = np.array([n_ts, n_ctrls])
+        grad = np.empty((n_ts, n_ctrls), dtype=object)
         time_st = timeit.default_timer()
 
         for j in range(n_ctrls):
@@ -1016,10 +1017,8 @@ class FidCompGrafs(FidelityComputer):
                     evo_grad = dyn._get_prop_grad(k, j).dot(fwd_evo)
                     if k + 1 < n_ts:
                         evo_grad = dyn._onwd_evo[k + 1].dot(evo_grad)
-                if np.isnan(g):
-                    g = np.Inf
 
-                grad[k, j] = g
+                grad[k, j] = evo_grad
         if dyn.stats is not None:
             dyn.stats.wall_time_gradient_compute += (
                 timeit.default_timer() - time_st
@@ -1053,7 +1052,7 @@ class FidCompGrafs(FidelityComputer):
 
 
 
-    def compute_fid_err_grad(self):
+    def get_fid_err_gradient(self):
         """
         Calculates gradient of function wrt to each timeslot
         control amplitudes. Note these gradients are not normalised
@@ -1064,6 +1063,9 @@ class FidCompGrafs(FidelityComputer):
         dyn = self.parent
         dyn.compute_evolution()
         evo_grad = self.compute_evo_grad()
-        tensor = np.tensordot(dyn.basis_function_matrix, evo_grad, axes=([0]))
+        print(evo_grad)
+        print("\n\n\n\n")
+        print(dyn.basis_function_matrix.shape)
+        tensor = np.tensordot(dyn.basis_function_matrix, evo_grad, axes=0)
         prod = dyn._target.conj().T * tensor
         return np.real(np.trace(prod)) #
