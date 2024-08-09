@@ -418,14 +418,12 @@ class PropCompFrechet(PropagatorComputer):
                 prop_grad_dense = la.expm_frechet(A, E, compute_expm=False)
                 prop_grad = Qobj(prop_grad_dense, dims=dyn.dyn_dims)
         else:
-       #     print(f"Within prop comp: {dyn._get_phased_dyn_gen(k)}")
             A = dyn._get_phased_dyn_gen(k) * dyn.tau[k]
-           # print(f"A: {A}")
             E = dyn._get_phased_ctrl_dyn_gen(k, j) * dyn.tau[k]
-           # print(f"E: {E}")
             if compute_prop:
                 prop, prop_grad = la.expm_frechet(A, E)
-                print(f"test9: {prop}")
+         #       print(f"dynamics: {dyn._get_phased_dyn_gen(k)}")
+          #      print(f"prop: {prop}")  
             else:
                 prop_grad = la.expm_frechet(A, E, compute_expm=False)
         if compute_prop:

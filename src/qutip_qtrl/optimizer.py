@@ -710,6 +710,7 @@ class Optimizer(object):
                     "gradient call {}".format(self.stats.num_grad_func_calls)
                 )
         amps = self._get_ctrl_amps(args[0].copy())
+        print("amps updated")
         self.dynamics.update_ctrl_amps(amps)
         fid_comp = self.dynamics.fid_computer
         # gradient_norm_func is a pointer to the function set in the config
@@ -1161,7 +1162,6 @@ class OptimizerCrab(Optimizer):
         float array[dynamics.num_tslots, dynamics.num_ctrls]
         """
         dyn = self.dynamics
-
         if self.log_level <= logging.DEBUG:
             changed_params = self.optim_var_vals != optim_var_vals
             logger.debug(
@@ -1391,6 +1391,7 @@ class OptimizerGrafs(Optimizer):
         float array[dynamics.num_tslots, dynamics.num_ctrls]
         """
         dyn = self.dynamics
+        print("optim_var_vals", optim_var_vals)
 
         if self.log_level <= logging.DEBUG:
             changed_params = self.optim_var_vals != optim_var_vals
@@ -1453,9 +1454,30 @@ class OptimizerGrafs(Optimizer):
                 maxfun=term_conds.max_fid_func_calls,
                 maxiter=term_conds.max_iterations,
             )
+            amps = self._get_ctrl_amps(optim_var_vals)
+            dyn.update_ctrl_amps(amps)
+            
+            warn = res_dict["warnflag"]
+            if warn == 0:
+                result.grad_norm_min_reached = True
+                result.termination_reason = "function converged"
+            elif warn == 1:
+                result.max_iter_exceeded = True
+                result.termination_reason = (
+                    "Iteration or fidelity " "function call limit reached"
+                )
+            elif warn == 2:
+                result.termination_reason = res_dict["task"]
+
+            result.num_iter = res_dict["nit"]
         except errors.OptimizationTerminate as except_term:
             self._interpret_term_exception(except_term, result)
 
+        end_time = timeit.default_timer()
+        self._add_common_result_attribs(result, st_time, end_time)
+
+        return result
+    
 class OptimIterSummary(qtrldump.DumpSummaryItem):
     """
     A summary of the most recent iteration of the pulse optimisation
