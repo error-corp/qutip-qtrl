@@ -970,6 +970,7 @@ class FidCompTraceDiff(FidelityComputer):
                 timeit.default_timer() - time_st
             )
         return grad
+    
 
 
 class FidCompGrafs(FidelityComputer):
@@ -1000,10 +1001,11 @@ class FidCompGrafs(FidelityComputer):
         dyn = self.parent
         n_ctrls = dyn.num_ctrls
         n_ts = dyn.num_tslots
+        dim, _ = dyn._target.shape
 
         # create n_ts x n_ctrls zero array for grad start point
      #   grad = np.array([n_ts, n_ctrls])
-        grad = np.empty((n_ts, n_ctrls), dtype=object)
+        grad = np.empty((n_ts, n_ctrls, dim, dim))
         time_st = timeit.default_timer()
 
         for j in range(n_ctrls):
@@ -1014,22 +1016,22 @@ class FidCompGrafs(FidelityComputer):
                     if k + 1 < n_ts:
                         evo_grad = dyn._onwd_evo[k + 1] * evo_grad
                 else:
+
                     evo_grad = dyn._get_prop_grad(k, j).dot(fwd_evo)
                     if k + 1 < n_ts:
                         evo_grad = dyn._onwd_evo[k + 1].dot(evo_grad)
-
-                grad[k, j] = evo_grad
+                grad[k, j, : , :] = evo_grad
         if dyn.stats is not None:
             dyn.stats.wall_time_gradient_compute += (
                 timeit.default_timer() - time_st
             )
+        
         return grad
         
     def compute_coefficient_gradient(self):
         dyn = self.parent
         n_ctrls = dyn.num_ctrls
         n_ts = dyn.num_tslots
-        
 
         evo_grad = self.compute_evo_grad()
         basis_matrix = dyn.basis_function_matrix # ensure this gets updated correctly
@@ -1052,20 +1054,57 @@ class FidCompGrafs(FidelityComputer):
 
 
 
-    def get_fid_err_gradient(self):
-        """
-        Calculates gradient of function wrt to each timeslot
-        control amplitudes. Note these gradients are not normalised
-        They are calulated
-        These are returned as a (nTimeslots x n_ctrls) array
-        """
-        # crucial method - consult with Dennis to nail down math for this
+    def compute_grafs_grad(self):
         dyn = self.parent
         dyn.compute_evolution()
         evo_grad = self.compute_evo_grad()
-        print(evo_grad)
-        print("\n\n\n\n")
-        print(dyn.basis_function_matrix.shape)
-        tensor = np.tensordot(dyn.basis_function_matrix, evo_grad, axes=0)
-        prod = dyn._target.conj().T * tensor
-        return np.real(np.trace(prod)) #
+        dim, _ = dyn._target.shape
+        _, num_basis_funcs = dyn.basis_function_matrix.shape
+        n_ctrls = dyn.num_ctrls
+        result = np.zeros((num_basis_funcs, n_ctrls, dim, dim))
+    
+        for k in range(num_basis_funcs):
+            for j in range(n_ctrls):
+                result[k, j, :, :] = np.tensordot(dyn.basis_function_matrix[:, k], evo_grad[:, j], axes=(0, 0))
+        return result
+    
+    def compute_fid_err_grad(self):
+        dyn = self.parent
+        _, num_basis_funcs = dyn.basis_function_matrix.shape
+        n_ctrls = dyn.num_ctrls
+        grafs_grad = self.compute_grafs_grad()
+        prod = np.matmul(dyn._target.conj().T, grafs_grad)
+        grad = np.zeros((num_basis_funcs, n_ctrls))
+
+        for k in range(num_basis_funcs):
+            for j in range(n_ctrls):
+                grad[k,j] = np.real(np.trace(prod[k, j, :, :]))
+        return grad
+    
+
+    def get_fid_err_gradient(self):
+        """
+        Returns the normalised gradient of the fidelity error
+        in a (nTimeslots x n_ctrls) array
+        The gradients are cached in case they are requested
+        mutliple times between control updates
+        (although this is not typically found to happen)
+        """
+        if not self.fid_err_grad_current:
+            dyn = self.parent
+            self.fid_err_grad = self.compute_fid_err_grad()
+            self.fid_err_grad_current = True
+            if dyn.stats is not None:
+                dyn.stats.num_grad_computes += 1
+
+            self.grad_norm = np.sqrt(np.sum(self.fid_err_grad**2))
+            if self.log_level <= logging.DEBUG_INTENSE:
+                logger.log(
+                    logging.DEBUG_INTENSE,
+                    "fidelity error gradients:\n"
+                    "{}".format(self.fid_err_grad),
+                )
+
+            if self.log_level <= logging.DEBUG:
+                logger.debug("Gradient norm: " "{} ".format(self.grad_norm))
+        return self.fid_err_grad

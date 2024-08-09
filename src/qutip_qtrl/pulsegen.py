@@ -601,7 +601,6 @@ class PulseGenRndWalk2(PulseGen):
             walk[k] = amp
             grad += (np.random.rand() * 2 - 1) * max_d2_amp
             amp += grad
-            # print("grad {}".format(grad))
 
         return self._apply_bounds_and_offset(walk)
 
@@ -1334,6 +1333,7 @@ class PulseGenGrafs(PulseGen):
         self.num_tslots = num_tslots
         self.num_basis_funcs = num_basis_funcs
         self.params = None
+        
         self.reset()
 
     def reset(self):
@@ -1397,12 +1397,13 @@ class PulseGenGrafsSlepian(PulseGenGrafs):
         """
         reset attribbutes to default values
         """
-        PulseGenCrab.reset(self)
+        PulseGenGrafs.reset(self)
+
         self.randomize_freqs = True
 
     def init_pulse(self, num_coeffs=None, init_coeffs=None):
         PulseGenGrafs.init_pulse(self)
-
+    
         self.init_coeffs()
 
     def get_basis_function(self):
