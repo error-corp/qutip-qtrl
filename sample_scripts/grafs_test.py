@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import datetime
 import os
+import sys
 import shutil
 
 
@@ -19,7 +20,8 @@ import shutil
 
 from qutip import Qobj, identity, sigmax, sigmaz, core
 #QuTiP control modules
-import src.qutip_qtrl.pulseoptim as cpo
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from src.qutip_qtrl import pulseoptim as cpo
 
 
 # In[3]:
