@@ -422,8 +422,6 @@ class PropCompFrechet(PropagatorComputer):
             E = dyn._get_phased_ctrl_dyn_gen(k, j) * dyn.tau[k]
             if compute_prop:
                 prop, prop_grad = la.expm_frechet(A, E)
-         #       print(f"dynamics: {dyn._get_phased_dyn_gen(k)}")
-          #      print(f"prop: {prop}")  
             else:
                 prop_grad = la.expm_frechet(A, E, compute_expm=False)
         if compute_prop:
