@@ -1036,6 +1036,13 @@ class FidCompGrafs(FidelityComputer):
         return np.real(np.trace(prod))
 
     def compute_grafs_grad(self):
+        """
+        Computes the gradient of the coefficients of the basis functions
+        Returns
+        -------
+        grad : Gradient of the coefficients of the basis functions 
+            (num_basis_funcs x n_ctrls x d x d)
+        """
         dyn = self.parent
         dyn.compute_evolution()
         evo_grad = self.compute_evo_grad()
@@ -1050,6 +1057,14 @@ class FidCompGrafs(FidelityComputer):
         return result
     
     def compute_fid_err_grad(self):
+        """
+        Computes the gradient of the fidelity error with respect to the basis function coefficients
+        
+        Returns
+        -------
+        grad : Gradient of the fidelity error with respect to the basis function coefficients
+            (num_basis_funcs x n_ctrls)
+        """
         dyn = self.parent
         _, num_basis_funcs = dyn.basis_function_matrix.shape
         n_ctrls = dyn.num_ctrls
