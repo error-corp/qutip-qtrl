@@ -42,7 +42,9 @@ By default it uses the Nelder-Mead method for fidelity error minimisation.
 
 
 GRAFS
-___
+-----
+[insert]
+
 References
 ----------
 1.  N Khaneja et. al.
