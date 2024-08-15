@@ -1229,7 +1229,6 @@ class Dynamics(object):
             if self.time_depend_ctrl_dyn_gen:
                 dg = dg + self.ctrl_amps[k, j] * self._ctrl_dyn_gen[k, j]
             else:
-                print("control amps", self.ctrl_amps[k, j])
                 dg = dg + self.ctrl_amps[k, j] * self._ctrl_dyn_gen[j]
 
         self._dyn_gen[k] = dg

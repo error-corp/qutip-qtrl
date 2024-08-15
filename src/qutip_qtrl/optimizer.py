@@ -710,7 +710,6 @@ class Optimizer(object):
                     "gradient call {}".format(self.stats.num_grad_func_calls)
                 )
         amps = self._get_ctrl_amps(args[0].copy())
-        print("amps updated")
         self.dynamics.update_ctrl_amps(amps)
         fid_comp = self.dynamics.fid_computer
         # gradient_norm_func is a pointer to the function set in the config
@@ -1375,9 +1374,16 @@ class OptimizerGrafs(Optimizer):
         return np.array(pvals)
 
     def _get_basis_function_matrix(self):
-        # all pulse generators use same slepian function (as of now)
+        """
+        Get the basis function matrix for the GRAFS pulse generator
+        
+        Returns
+        -------
+        ndarray (2d) of float
+        """
 
         return self.pulse_generator[0].get_basis_function()
+    
     def _get_ctrl_amps(self, optim_var_vals):
         """
         Get the control amplitudes from the current variable values
@@ -1391,7 +1397,6 @@ class OptimizerGrafs(Optimizer):
         float array[dynamics.num_tslots, dynamics.num_ctrls]
         """
         dyn = self.dynamics
-        print("optim_var_vals", optim_var_vals)
 
         if self.log_level <= logging.DEBUG:
             changed_params = self.optim_var_vals != optim_var_vals
