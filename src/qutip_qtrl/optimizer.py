@@ -1309,7 +1309,6 @@ class OptimizerCrabFmin(OptimizerCrab):
 
         return result
 
-# grafs_flag
 class OptimizerGrafs(Optimizer):
     def reset(self):
         Optimizer.reset(self)
@@ -1321,9 +1320,6 @@ class OptimizerGrafs(Optimizer):
 
         self.num_optim_vars = 0
         pulse_gen_valid = True
-        # check the pulse generators match the ctrls
-        # (in terms of number)
-        # and count the number of parameters
         if self.pulse_generator is None:
             pulse_gen_valid = False
             err_msg = "pulse_generator attribute is None"
@@ -1422,6 +1418,27 @@ class OptimizerGrafs(Optimizer):
 
 
     def run_optimization(self, term_conds=None):
+        """
+        This function optimisation method is a wrapper to the
+        scipy.optimize.minimize function.
+
+        It will attempt to minimise the fidelity error with respect to some
+        parameters, which are determined by _get_optim_var_vals which
+        in the case of GRAFS are the basis function coefficients
+
+        The optimisation end when one of the passed termination conditions
+        has been met, e.g. target achieved, wall time, or
+        function call or iteration count exceeded. Specifically to the fmin
+        method, the optimisation will stop when change parameter values
+        is less than xtol or the change in function value is below ftol.
+
+        If the parameter term_conds=None, then the termination_conditions
+        attribute must already be set. It will be overwritten if the
+        parameter is not None
+
+        The result is returned in an OptimResult object, which includes
+        the final fidelity, time evolution, reason for termination etc
+        """
         self.init_optim(term_conds)
         term_conds = self.termination_conditions 
         dyn = self.dynamics
@@ -1439,10 +1456,8 @@ class OptimizerGrafs(Optimizer):
             self.stats.wall_time_optim_end = 0.0
             self.stats.num_iter = 1
 
-    #    bounds = self._build_bounds_list() # ensure this isn't needed
         result = self._create_result()
-
-        fprime = self.fid_err_grad_wrapper # need
+        fprime = self.fid_err_grad_wrapper
 
         try:
             optim_var_vals, fid, res_dict = fmin_l_bfgs_b(

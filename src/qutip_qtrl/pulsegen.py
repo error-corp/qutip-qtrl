@@ -1435,11 +1435,17 @@ class PulseGenGrafsSlepian(PulseGenGrafs):
         self.randomize_freqs = True
 
     def init_pulse(self, init_coeffs=None):
+        """
+        Initialise the pulse parameters
+        """
         PulseGenGrafs.init_pulse(self)
         self.num_optim_vars = self.num_basis_funcs
         self.init_coeffs(init_coeffs)
 
     def get_basis_function(self):
+        """
+        Generate Slepian basis functions
+        """
         w = .025
         nw = self.num_tslots * w
         V = sp.signal.windows.dpss(self.num_tslots, nw, self.num_basis_funcs).T
@@ -1447,7 +1453,7 @@ class PulseGenGrafsSlepian(PulseGenGrafs):
     
     def gen_pulse(self):
         """
-        Generate slepian function sequences
+        Generate Pulse using Slepian basis functions
         """
         V = self.get_basis_function()
         A = self.coeffs
