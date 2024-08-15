@@ -989,7 +989,6 @@ class FidCompGrafs(FidelityComputer):
         FidelityComputer.reset(self)
         self.id_text = "GRAFS"
         self.uses_onwd_evo = True
-     #   self.scale_factor = None
         self.epsilon = 0.001
         self.apply_params()
 
@@ -1004,7 +1003,6 @@ class FidCompGrafs(FidelityComputer):
         dim, _ = dyn._target.shape
 
         # create n_ts x n_ctrls zero array for grad start point
-     #   grad = np.array([n_ts, n_ctrls])
         grad = np.empty((n_ts, n_ctrls, dim, dim))
         time_st = timeit.default_timer()
 
@@ -1027,32 +1025,15 @@ class FidCompGrafs(FidelityComputer):
             )
         
         return grad
-        
-    def compute_coefficient_gradient(self):
-        dyn = self.parent
-        n_ctrls = dyn.num_ctrls
-        n_ts = dyn.num_tslots
-
-        evo_grad = self.compute_evo_grad()
-        basis_matrix = dyn.basis_function_matrix # ensure this gets updated correctly
-        _, num_basis_funcs = basis_matrix.shape
-        # figure out the axes - tensor dot along l 
-        grad = np.zeros([num_basis_funcs, n_ctrls])
-        for k in range(num_basis_funcs):
-            for j in range(n_ctrls):
-                grad[k, j] = np.sum(basis_matrix[:, k] * evo_grad[:, j])
-        return grad 
-
-
-
 
     def get_fid_err(self):
+        """
+        Gets the error in the fidelity
+        """
         dyn = self.parent
         dyn.compute_evolution()
-        prod = dyn._target.conj().T * dyn._fwd_evo[dyn.num_tslots] # ensure correct
+        prod = dyn._target.conj().T * dyn._fwd_evo[dyn.num_tslots]
         return np.real(np.trace(prod))
-
-
 
     def compute_grafs_grad(self):
         dyn = self.parent
@@ -1081,7 +1062,6 @@ class FidCompGrafs(FidelityComputer):
                 grad[k,j] = np.real(np.trace(prod[k, j, :, :]))
         return grad
     
-
     def get_fid_err_gradient(self):
         """
         Returns the normalised gradient of the fidelity error
